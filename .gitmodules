@@ -1,0 +1,9 @@
+[submodule "jl-uboot-tool"]
+	path = jl-uboot-tool
+	url = ../jl-uboot-tool
+[submodule "jl-misctools"]
+	path = jl-misctools
+	url = ../jl-misctools
+[submodule "inject/tremor"]
+	path = inject/tremor
+	url = ../jl-tremor
