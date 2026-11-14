@@ -1,6 +1,6 @@
 TC=$(HOME)/Downloads/jl/jieli-linux-toolchains-20250324.1/pi32v2
 SDK=$(HOME)/Dev/jl/JL7006
-DEFINES=-DBINLOG -DDEVMODE
+DEFINES=-DBINLOG -DDEVMODE -DUSE_TREMOR_OVERLAY
 CFLAGS= \
 	-I$(SDK)/include_lib \
 	-I$(SDK)/include_lib/driver/cpu/br36 \
@@ -15,7 +15,7 @@ CFLAGS= \
        -Itremor \
        $(DEFINES)
 
-OBJS=inject_init.o debug.o main.o trampoline.o fs.o ogg.o \
+OBJS=inject_init.o debug.o main.o trampoline.o fs.o ogg.o profile.o overlay.o \
 	tremor/vorbisfile.o \
 	tremor/bitwise.o tremor/codebook.o tremor/dsp.o tremor/floor0.o tremor/floor1.o tremor/floor_lookup.o tremor/framing.o tremor/info.o tremor/mapping0.o tremor/mdct.o tremor/res012.o
 

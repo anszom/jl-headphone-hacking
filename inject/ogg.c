@@ -11,6 +11,10 @@
  */
 
 #include "asm/cpu.h"
+#include "overlay.h"
+
+#define PROFILE
+#include "profile.h"
 
 #include "media/audio_base.h"
 #include "media/audio_decoder.h"
@@ -74,7 +78,14 @@ ogg_decoder *ogg_open(struct audio_decoder *adec)
 		return ogg;
 	ogg->adec = adec;
 	ogg->adec->input->ops.file.fseek(ogg->adec, 0, 0);
-	ov_open_callbacks((void *)adec, &ogg->vf, 0, 0, io_callbacks);
+	int rv = ov_open_callbacks((void *)adec, &ogg->vf, 0, 0, io_callbacks);
+	if(rv == 0) {
+#ifdef USE_TREMOR_OVERLAY
+		overlay_load();
+		// the space between these two can be freely used
+		vorbis_dsp_set_cache_area(&__overlay_end, &__overlay_ceiling - &__overlay_end);
+#endif
+	}
 
 	return ogg;
 }
@@ -124,6 +135,7 @@ int ogg_start(ogg_decoder *ogg)
 int ogg_run(ogg_decoder *ogg, u8 *premain)
 {
 	int rv = 0;
+	PROFILE_START();
 	for(;;) {
 		if(ogg->fill == 0) {
 			int bs;
@@ -152,6 +164,7 @@ int ogg_run(ogg_decoder *ogg, u8 *premain)
 			ogg->fill = ogg->off = 0;
 		}
 	}
+	PROFILE_STOP();
 
 	return rv;
 }

@@ -1,6 +1,7 @@
 MEMORY {
   rom (rx)  : ORIGIN = 0x1e6a700, LENGTH = 0x20000
   ram (rwx) : ORIGIN = 0x15ac4, LENGTH = 0x1000 /* there is way more RAM there, but let's be conservative */
+  overlay (rwx): ORIGIN = 0xd784, LENGTH = 0x833a /* size of the AEC overlay. AAC is smaller */
 }
 
 PROVIDE(jiffies = 0x1518);
@@ -10,6 +11,18 @@ PROVIDE(p33_soft_reset = 0xc520);
 
 SECTIONS
 {
+  .overlay : {
+#ifdef USE_TREMOR_OVERLAY
+    tremor/mdct.o(.rodata .rodata.*)
+    tremor/floor_lookup.o(.rodata .rodata.*)
+#endif
+  } > overlay AT> rom
+
+  __overlay_start = ADDR(.overlay);
+  __overlay_end = __overlay_start + SIZEOF(.overlay);
+  __overlay_ceiling = ADDR(.overlay) + LENGTH(overlay);
+  __overlay_load = LOADADDR(.overlay);
+
   /* Fixed-size slot for the tremor decoder. Kept first and at a constant size
      so edits to any other object never shift tremor's code/rodata. */
   .text.tremor : {
