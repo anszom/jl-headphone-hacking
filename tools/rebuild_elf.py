@@ -24,15 +24,14 @@ Section sizes/addresses are read straight out of the startup copy loops
 as immediates; the src loads are the only immediates >= 0x1000000, which makes
 them unambiguous to find. text_size = (.data source) - 0x1e00120.
 
-If a map file exists (the matcher's graph_map.tsv by default), a .symtab is
-embedded so the disassembly is self-documenting. Pass --map repeatedly to layer
-several maps (later ones override earlier by address), e.g. the matcher output
-plus a hand-annotated map:
-    python3 matcher/rebuild_elf.py --map .match-cache/graph_map.tsv --map manual.syms
+If map files are given with --map, a .symtab is embedded so the disassembly is
+self-documenting. Pass --map repeatedly to layer several maps (later ones
+override earlier by address), e.g. the matcher output plus a hand-annotated map:
+    python3 tools/rebuild_elf.py --map work/graph_map.tsv --map manual.syms
 
-Usage:  python3 matcher/rebuild_elf.py [--bin app.bin] [--out app.rebuilt.elf]
+Usage:  python3 tools/rebuild_elf.py --bin app.bin --out app.rebuilt.elf
                                        [--map FILE ...] [--no-symbols]
-                                       [--no-overlays]
+                                       [--rom-lst FILE [--stubs FILE]]
 """
 import os
 import re
@@ -40,15 +39,6 @@ import struct
 import argparse
 
 from jl_sdk_utils import derive_layout, decompress_overlays, CODE_BASE, E_MACHINE_PI32
-
-# maskrom sources (chip ROM): a full disassembly listing + the stub symbol table.
-SDK_BASE = os.environ.get("JL_SDK")
-DEF_ROM_LST = None
-DEF_STUBS = None
-
-if SDK_BASE:
-    DEF_ROM_LST = os.path.join(SDK_BASE, 'cpu', 'br36', 'tools', 'rom.lst')
-    DEF_STUBS = os.path.join(SDK_BASE, 'cpu', 'br36', 'maskrom_stubs.ld')
 
 # ELF constants
 from elf import SHT_NULL, SHT_PROGBITS, SHT_SYMTAB, SHT_STRTAB, SHT_NOBITS, SHF_WRITE, SHF_ALLOC, SHF_EXEC, WA, AX, STT_FUNC, STB_GLOBAL;
@@ -266,22 +256,22 @@ def build_elf(payload, secs, symbols=None):
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--bin',
+    ap.add_argument('--bin', required=True,
                     help='raw flattened app.bin (the reconstructor input)')
-    ap.add_argument('--out',
+    ap.add_argument('--out', required=True,
                     help='reconstructed multi-section ELF (the matcher input)')
     ap.add_argument('--map', action='append', metavar='FILE',
                     help='map file(s) to import symbols from (name<TAB>hexaddr); '
                     'repeatable, later files override earlier by address. '
-                    'Default: the matcher graph_map.tsv.')
+                    'No default: without --map there are no symbols to embed.')
     ap.add_argument('--no-symbols', action='store_true',
                     help='emit a symbol-free ELF even if a map exists')
-    ap.add_argument('--rom-lst', default=DEF_ROM_LST,
-                    help='maskrom disassembly listing (rom.lst) to embed')
-    ap.add_argument('--stubs', default=DEF_STUBS,
-                    help='maskrom stub symbol table (maskrom_stubs.ld)')
-    ap.add_argument('--no-rom', action='store_true',
-                    help='do not embed the maskrom code/symbols')
+    ap.add_argument('--rom-lst',
+                    help='maskrom disassembly listing (rom.lst) to embed; '
+                         'omit to skip the maskrom code/symbols')
+    ap.add_argument('--stubs',
+                    help='maskrom stub symbol table (maskrom_stubs.ld); '
+                         'only used with --rom-lst')
     args = ap.parse_args()
 
     payload = open(args.bin, 'rb').read()
@@ -289,7 +279,7 @@ def main():
     secs += decompress_overlays(payload, secs, OVERLAY_NAMES)
 
     rom_syms = []
-    if not args.no_rom and os.path.exists(args.rom_lst):
+    if args.rom_lst:
         rsecs = load_rom_sections(args.rom_lst)
         secs += rsecs
         rom_syms = load_rom_symbols(args.rom_lst, args.stubs)

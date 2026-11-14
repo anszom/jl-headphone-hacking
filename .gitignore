@@ -2,3 +2,5 @@
 *.out
 .*.sw?
 *.elf
+__pycache__
+work

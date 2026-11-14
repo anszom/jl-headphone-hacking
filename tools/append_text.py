@@ -40,7 +40,7 @@ The appended bytes must already be assembled/linked to run at text_end
 also does not re-run the outer firmware packager — feed the new app.bin to that.
 
 Usage:
-    python3 matcher/append_text.py PAYLOAD [--bin app.bin] [--out OUT]
+    python3 tools/append_text.py PAYLOAD --bin app.bin [--out OUT]
                                    [--align N] [--fill HH] [--dry-run]
 """
 import os
@@ -162,7 +162,7 @@ def main():
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('payload', help='file whose bytes to append to .text')
-    ap.add_argument('--bin', help='input app.bin')
+    ap.add_argument('--bin', required=True, help='input app.bin')
     ap.add_argument('--out', help='output image (default: <bin>.appended)')
     ap.add_argument('--align', type=int, default=4,
                     help='pad the appended size up to this many bytes (default 4, '

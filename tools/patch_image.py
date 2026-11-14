@@ -1,4 +1,24 @@
 #!/usr/bin/env python3
+"""End-to-end JieLi app.bin patcher: append injected code + redirect call sites.
+
+Combines two operations into one image build:
+
+  1. Append the injected code. Takes an ELF built with the inject.ld linker script
+     Its loadable bytes are spliced onto the end of .text exactly like append_text.py
+
+  2. Apply binary patches in the original app.bin code. The patch locations & types
+     (including goto & call branching) are taken from the .patchmeta section of
+     inject.elf. Additionally, the following option is supported:
+       --data VADDR          reserve the injected module's RAM: the 32-bit word
+                             at VADDR must currently equal the injected .data VMA
+                             (the injected .data VMA, __idata_start in the ELF); it
+                             is rewritten to the end of .data+.bss (__ibss_end),
+                             bumping the firmware heap up past the module. Aborts
+                             on mismatch.
+
+Usage:
+    python3 ./tools/patch_image.py inject/inject.elf --data 0x1e494ca --bin app.bin --out out.bin [--dry-run]
+"""
 import os
 import struct
 import argparse
@@ -63,15 +83,15 @@ def apply_patches(img, entries, text_size):
             info = ('ptr', addr)
         elif kind == 'data':
             # --data VADDR: reserve the injected module's RAM. The 32-bit word at
-            # `site` must currently hold the injected .data VMA (== --data-addr);
+            # `site` must currently hold the injected .data VMA (__idata_start);
             # replace it with the end of .data+.bss so the firmware's heap starts
-            # above the module's RAM. Abort on mismatch (wrong site, or
-            # --data-addr wasn't set to the firmware's heap base).
+            # above the module's RAM. Abort on mismatch (wrong site, or the
+            # firmware heap base is not where the payload expects it).
             vma, end = syms.get('__idata_start'), syms.get('__ibss_end')
             if vma is None or end is None:
                 raise SystemExit(
-                    "--data VADDR needs the payload linked with gen_symld.py "
-                    "--data-addr (missing __idata_start / __ibss_end)")
+                    "--data VADDR needs the payload ELF linked with inject.ld "
+                    "(missing __idata_start / __ibss_end)")
             cur = struct.unpack_from('<I', old, 0)[0]
             if cur != vma:
                 raise SystemExit(
@@ -151,12 +171,12 @@ def main():
     ap.add_argument('elf', help='injected code, ELF linked via gen_symld.py')
     ap.add_argument('--data',
                     metavar='VADDR',
-                    help='reserve the injected module RAM -- the 32-bit word at'
+                    help='reserve the injected module RAM -- the 32-bit word at '
                          'VADDR must currently equal the injected .data VMA '
-                         '(--data-addr) and is rewritten to the end of .data+.bss, '
+                         '(__idata_start) and is rewritten to the end of .data+.bss, '
                          'bumping the firmware heap past the module (aborts on mismatch).'
                     )
-    ap.add_argument('--bin', help='input app.bin')
+    ap.add_argument('--bin', required=True, help='input app.bin')
     ap.add_argument('--out', help='output image (default: <bin>.patched)')
     ap.add_argument('--align', type=int, default=4,
                     help='pad appended size up to N bytes (default 4)')
@@ -191,7 +211,7 @@ def main():
         off = site - CODE_BASE
 
         # reserve the injected module's RAM. The 32-bit word at `site` must currently hold
-        # the injected .data VMA (== --data-addr); replace it with the end of .data+.bss
+        # the injected .data VMA (__idata_start); replace it with the end of .data+.bss
         # so the firmware's heap starts above the module's RAM. Abort on mismatch
         vma, end = elff.named_symbols.get('__idata_start'), elff.named_symbols.get('__ibss_end')
         if vma is None or end is None:

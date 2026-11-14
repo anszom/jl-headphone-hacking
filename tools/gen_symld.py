@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+"""Generate a linker script that PROVIDEs the firmware's symbols.
+
+Reads the symbol table of the reconstructed device ELF (`app.rebuilt.elf`)
+and emits `PROVIDE(name = 0xADDR);` for every named function/data symbol. Link
+your injected code against the resulting `.ld` and calls to existing firmware /
+maskrom routines (memcpy, LZ4_*, os_*, matched app funcs, ...) resolve to their
+real addresses.
+
+Usage:
+    python3 tools/gen_symld.py --elf work/app.rebuilt.elf -o inject/app.ld
+"""
 
 import os
 import re
@@ -71,7 +82,7 @@ def main():
     p = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--elf", help="symbol source ELF")
+    p.add_argument("--elf", required=True, help="symbol source ELF")
     p.add_argument("-o", "--out", default=None, help="output .ld path (default: stdout)")
     args = p.parse_args()
 
