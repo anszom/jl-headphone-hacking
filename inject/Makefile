@@ -1,6 +1,7 @@
 TC=$(HOME)/Downloads/jl/jieli-linux-toolchains-20250324.1/pi32v2
 SDK=$(HOME)/Dev/jl/JL7006
-DEFINES=-DBINLOG -DDEVMODE -DUSE_TREMOR_OVERLAY
+DEFINES=-DUSE_TREMOR_OVERLAY
+#DEFINES+= -DBINLOG -DDEVMODE
 CFLAGS= \
 	-I$(SDK)/include_lib \
 	-I$(SDK)/include_lib/driver/cpu/br36 \
